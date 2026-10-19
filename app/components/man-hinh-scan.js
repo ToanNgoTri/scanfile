@@ -75,6 +75,8 @@ export default function ManHinhScan() {
   const [dangXong, setDangXong] = useState(false)
   const [dangChoGiay, setDangChoGiay] = useState(false)
   const daNapRef = useRef(false)
+  const lamMoiRef = useRef(false)
+  const [dangLamMoi, setDangLamMoi] = useState(false)
 
   // ── nạp cấu hình ────────────────────────────────────────────────────────
   useEffect(() => {
@@ -208,6 +210,7 @@ export default function ManHinhScan() {
     if (typeof noiVao !== 'string') noiVao = null
     daDungRef.current = false
     daXongRef.current = false
+    lamMoiRef.current = false
     setDangScanVao(noiVao)
     dangScanRef.current = true
     setDangScan(true)
@@ -259,6 +262,8 @@ export default function ManHinhScan() {
       setDangDung(false)
       setHopThoai('')
       setTrangThai('')
+      // Làm mới giữa lúc quét: thay câu "Đã dừng scan…" bằng thông báo làm mới
+      if (lamMoiRef.current) setThongBao({ text: 'Đã làm mới — sẵn sàng cho đợt scan khác.' })
     }
   }
 
@@ -303,6 +308,39 @@ export default function ManHinhScan() {
     }, 1000)
     return () => clearInterval(t)
   }, [dangScan])
+
+  /**
+   * Làm mới: xong mọi việc rồi thì về trạng thái ban đầu để làm đợt khác —
+   * huỷ lượt quét còn treo, thư mục con về mặc định, xoá thông báo / đánh dấu.
+   */
+  async function lamMoi() {
+    if (dangLamMoi) return
+    const canhBao = []
+    if (dangScan) canhBao.push('Đang có lượt quét — sẽ bị HUỶ, không giữ trang nào của lượt đó.')
+    const soNhap = taiLieu.filter((t) => t.trangThai === 'nhap').length
+    if (soNhap) canhBao.push(`Còn ${soNhap} file nháp chưa lưu — vẫn nằm trong thư mục "${con}", chọn lại thư mục đó là thấy.`)
+    if (canhBao.length && !confirm(`${canhBao.join('\n')}\n\nVẫn làm mới?`)) return
+    setDangLamMoi(true)
+    lamMoiRef.current = true
+    daDungRef.current = true
+    batTatLienTuc(false)
+    try {
+      const r = await goiApi('/api/lam-moi', { method: 'POST' })
+      daNapRef.current = false // cấu hình vừa lưu ở server — không PUT lại
+      setCh(r.ch)
+      setMoi(new Set())
+      setLoiLuu({})
+      setXem(null)
+      setDoiTenTm(null)
+      setHopThoai('')
+      setTrangThai('')
+      setThongBao({ text: 'Đã làm mới — sẵn sàng cho đợt scan khác.' })
+    } catch (e) {
+      setThongBao({ loi: true, text: e.message })
+    } finally {
+      setDangLamMoi(false)
+    }
+  }
 
   function batTatLienTuc(b) {
     lienTucRef.current = b
@@ -415,9 +453,19 @@ export default function ManHinhScan() {
         <h1 className="text-xl font-semibold tracking-tight">
           scanFile <span className="ml-2 text-sm font-normal text-neutral-500">Canon imageFORMULA DR-F120</span>
         </h1>
-        {may.naps2 === null && ch.driver !== 'gia-lap' && (
-          <span className="text-xs text-amber-400">Chưa có NAPS2 — xem HUONG-DAN.md</span>
-        )}
+        <div className="flex items-center gap-3">
+          {may.naps2 === null && ch.driver !== 'gia-lap' && (
+            <span className="text-xs text-amber-400">Chưa có NAPS2 — xem HUONG-DAN.md</span>
+          )}
+          <button
+            className="rounded-md border border-neutral-700 px-3 py-1.5 text-sm hover:bg-neutral-800 disabled:opacity-50"
+            onClick={lamMoi}
+            disabled={dangLamMoi || dangLuu}
+            title="Xong việc: huỷ lượt quét còn treo, thư mục con về mặc định, xoá thông báo — để làm đợt scan khác"
+          >
+            {dangLamMoi ? 'Đang làm mới…' : '⟲ Làm mới'}
+          </button>
+        </div>
       </header>
 
       {/* ── nơi lưu ───────────────────────────────────────────────────── */}
