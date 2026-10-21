@@ -548,20 +548,6 @@ export default function ManHinhScan() {
             ) : null}
           </p>
         </div>
-
-        <label className="block">
-          <span className="mb-1 block text-xs font-medium uppercase tracking-wide text-neutral-400">
-            Thư mục con của con <span className="normal-case text-neutral-500">— mặc định cho file mới quét, sửa riêng từng file ở dưới</span>
-          </span>
-          <input
-            className={`${o} w-full font-mono`}
-            value={ch.thuMucCap3}
-            onChange={sua('thuMucCap3')}
-            list="ds-thu-muc-2"
-            placeholder="để trống = lưu ngay trong thư mục con; nhiều cấp thì ngăn bằng \  ví dụ  Ho so A\Nguyen Van A"
-            spellCheck={false}
-          />
-        </label>
       </section>
 
       {/* ── máy scan ──────────────────────────────────────────────────── */}

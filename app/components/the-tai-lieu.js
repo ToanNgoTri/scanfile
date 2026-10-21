@@ -219,6 +219,26 @@ export function TheNhap({
           <span className="text-neutral-300">{tl.ten}.pdf</span>
           {!tl.thuMuc2 && <span className="font-sans"> (ngay trong thư mục con)</span>}
         </p>
+        {goiYThuMuc.length > 0 && (
+          <div className="flex flex-wrap items-center gap-1 pl-8" aria-label="Chọn nhanh thư mục con của con">
+            {['', ...goiYThuMuc].map((t) => {
+              const dangChon = (tl.thuMuc2 ?? '') === t
+              return (
+                <button
+                  key={t || '.'}
+                  className={`rounded px-1.5 py-0.5 font-mono text-[11px] ${
+                    dangChon ? 'bg-sky-900/60 text-sky-200' : 'text-sky-400 hover:bg-neutral-800 hover:underline'
+                  }`}
+                  onClick={() => !dangChon && luuO({ hanhDong: 'doi-thu-muc', id: tl.id, thuMuc2: t })}
+                  aria-pressed={dangChon}
+                  title={t ? `Lưu vào ${tenCon}\\${t}` : 'Lưu ngay trong thư mục con'}
+                >
+                  {t ? `${t}\\` : '(ngay trong thư mục con)'}
+                </button>
+              )
+            })}
+          </div>
+        )}
         <datalist id="ds-thu-muc-2">
           {goiYThuMuc.map((t) => (
             <option key={t} value={t} />
