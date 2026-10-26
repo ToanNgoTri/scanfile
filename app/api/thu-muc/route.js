@@ -2,7 +2,7 @@ import { existsSync } from 'node:fs'
 import { mkdir, rename } from 'node:fs/promises'
 import { boc, docBody, moTrongExplorer } from '@/lib/api'
 import { luuCauHinh } from '@/lib/cau-hinh'
-import { tuanTu } from '@/lib/khoa'
+import { tuanTu, tuanTuDs } from '@/lib/khoa'
 import { LoiNguoiDung, thongTinThuMuc, thuMucRa } from '@/lib/tai-lieu'
 
 export const runtime = 'nodejs'
@@ -36,7 +36,7 @@ export const POST = boc(async (req) => {
   if (hanhDong === 'doi-ten') {
     const moi = thuMucRa(goc, tenMoi)
     // đổi tên khi đang scan dở là ghi ảnh vào thư mục không còn tồn tại
-    return tuanTu(async () => {
+    return tuanTu(() => tuanTuDs(async () => {
       if (!existsSync(p)) throw new LoiNguoiDung(`Chưa có thư mục "${con}" để đổi tên.`, 404)
       const cungTen = moi.toLowerCase() === p.toLowerCase()
       if (!cungTen && existsSync(moi)) throw new LoiNguoiDung(`Đã có thư mục "${tenMoi}" rồi.`, 409)
@@ -53,7 +53,7 @@ export const POST = boc(async (req) => {
       }
       luuCauHinh({ thuMucGoc: goc, thuMucCon: tenMoi })
       return Response.json(await thongTinThuMuc(goc, tenMoi))
-    })
+    }))
   }
   throw new LoiNguoiDung('Hành động không hợp lệ.')
 })

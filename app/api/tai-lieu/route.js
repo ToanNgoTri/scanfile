@@ -1,13 +1,14 @@
 import { join } from 'node:path'
 import { boc, canThuMuc, docBody, moTrongExplorer } from '@/lib/api'
 import { docCauHinh } from '@/lib/cau-hinh'
-import { tuanTu } from '@/lib/khoa'
+import { tuanTuDs } from '@/lib/khoa'
 import {
   boTrang,
   chuyenTrang,
   danhSach,
   doiTen,
   doiThuMuc2,
+  doiThuMuc2Chung,
   gopVaoTruoc,
   LoiNguoiDung,
   luuTatCa,
@@ -31,6 +32,7 @@ export const GET = boc(async (req) => {
  * Thao tác trên NHÁP — chỉ sửa danh sách, không đụng file PDF:
  *   { hanhDong: 'doi-ten', id, ten }
  *   { hanhDong: 'doi-thu-muc', id, thuMuc2 }
+ *   { hanhDong: 'doi-thu-muc-chung', tu, den }   nháp đang ở thư mục `tu` → `den`
  *   { hanhDong: 'chuyen-trang', anh, denId, viTri }   denId rỗng = tách ra file mới
  *   { hanhDong: 'xoay', anh: [..] | anh, goc: 90 | -90 | 180 }
  *   { hanhDong: 'gop' | 'tach' | 'xoa' | 'sua-lai', id }
@@ -42,7 +44,8 @@ export const POST = boc(async (req) => {
   const b = await docBody(req)
   const thuMuc = canThuMuc(b.thuMuc)
   const ch = docCauHinh()
-  return tuanTu(async () => {
+  // hàng đợi danh sách, KHÔNG chờ máy scan: sửa nháp vừa quét ăn ngay cả khi đang quét lượt sau
+  return tuanTuDs(async () => {
     let soDaLuu
     switch (b.hanhDong) {
       case 'doi-ten':
@@ -50,6 +53,9 @@ export const POST = boc(async (req) => {
         break
       case 'doi-thu-muc':
         await suaNhap(thuMuc, (ds) => doiThuMuc2(ds, b.id, b.thuMuc2))
+        break
+      case 'doi-thu-muc-chung':
+        await suaNhap(thuMuc, (ds) => doiThuMuc2Chung(ds, b.tu, b.den))
         break
       case 'chuyen-trang':
         await suaNhap(thuMuc, (ds) => chuyenTrang(ds, thuMuc, b.anh, b.denId, b.viTri, ch))

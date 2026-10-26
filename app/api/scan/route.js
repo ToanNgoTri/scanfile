@@ -1,7 +1,7 @@
 import { mkdir, rm } from 'node:fs/promises'
 import { boc } from '@/lib/api'
 import { docCauHinh } from '@/lib/cau-hinh'
-import { tuanTu } from '@/lib/khoa'
+import { loDangQuet, tuanTu, tuanTuDs } from '@/lib/khoa'
 import { scan } from '@/lib/may-scan'
 import { dungPhien, LoiDaDung, phien, xongPhien } from '@/lib/may-scan/phien'
 import { ghiNhatKy } from '@/lib/nhat-ky'
@@ -22,37 +22,46 @@ export const POST = boc(async (req) => {
   return tuanTu(async () => {
     const ch = docCauHinh()
     const thuMuc = thuMucRa(ch.thuMucGoc, ch.thuMucCon)
-    if (body.noiVao) await kiemConNhap(thuMuc, body.noiVao)
-    await mkdir(thuMuc, { recursive: true })
-    const { lo, dir } = await taoLo(thuMuc)
-
-    // lyDo: 'mot-lan' bấm quét · 'co' cảm biến báo có giấy · 'thu' chờ lâu / cảm biến
-    // không đọc được · 'ngay' bấm Quét ngay — để nhật ký đo được cảm biến sai bao nhiêu
-    ghiNhatKy('yêu cầu quét:', body.lyDo ?? 'mot-lan', body.noiVao ? `(scan tiếp vào ${body.noiVao})` : '')
-    let kq
+    // chỉ giữ khoá danh sách lúc đọc/ghi — trong lúc máy kéo giấy, người dùng vẫn sửa
+    // được các file nháp vừa quét (tên, thư mục con của con…) và thấy ăn ngay
+    const { lo, dir } = await tuanTuDs(async () => {
+      if (body.noiVao) await kiemConNhap(thuMuc, body.noiVao)
+      await mkdir(thuMuc, { recursive: true })
+      const r = await taoLo(thuMuc)
+      loDangQuet.add(r.lo)
+      return r
+    })
     try {
-      kq = await scan(dir, ch)
-    } catch (e) {
-      await rm(dir, { recursive: true, force: true })
-      if (e instanceof LoiDaDung) return Response.json({ thuMuc, soTrang: 0, daDung: true, moi: [] })
-      throw e
-    }
+      // lyDo: 'mot-lan' bấm quét · 'co' cảm biến báo có giấy · 'thu' chờ lâu / cảm biến
+      // không đọc được · 'ngay' bấm Quét ngay — để nhật ký đo được cảm biến sai bao nhiêu
+      ghiNhatKy('yêu cầu quét:', body.lyDo ?? 'mot-lan', body.noiVao ? `(scan tiếp vào ${body.noiVao})` : '')
+      let kq
+      try {
+        kq = await scan(dir, ch)
+      } catch (e) {
+        await rm(dir, { recursive: true, force: true })
+        if (e instanceof LoiDaDung) return Response.json({ thuMuc, soTrang: 0, daDung: true, moi: [] })
+        throw e
+      }
 
-    const anh = await anhTrongLo(dir)
-    ghiNhatKy(`kết quả: ${anh.length} trang`)
-    if (anh.length && ['thu', 'ngay'].includes(body.lyDo)) {
-      ghiNhatKy('⚠ cảm biến báo khay trống nhưng thực tế CÓ giấy — cảm biến máy này báo sai')
+      const anh = await anhTrongLo(dir)
+      ghiNhatKy(`kết quả: ${anh.length} trang`)
+      if (anh.length && ['thu', 'ngay'].includes(body.lyDo)) {
+        ghiNhatKy('⚠ cảm biến báo khay trống nhưng thực tế CÓ giấy — cảm biến máy này báo sai')
+      }
+      if (!anh.length) {
+        await rm(dir, { recursive: true, force: true })
+        return Response.json({ thuMuc, soTrang: 0, hetGiay: kq.hetGiay, log: kq.log, moi: [] })
+      }
+      if (body.noiVao) {
+        const t = await tuanTuDs(() => noiLoVao(thuMuc, lo, anh, body.noiVao, kq.dpi))
+        return Response.json({ thuMuc, soTrang: anh.length, moi: [], noiVao: t, log: kq.log })
+      }
+      const moi = await tuanTuDs(() => nhanLoScan(thuMuc, lo, anh, { ...ch, dpi: kq.dpi }))
+      return Response.json({ thuMuc, soTrang: anh.length, moi, log: kq.log })
+    } finally {
+      loDangQuet.delete(lo)
     }
-    if (!anh.length) {
-      await rm(dir, { recursive: true, force: true })
-      return Response.json({ thuMuc, soTrang: 0, hetGiay: kq.hetGiay, log: kq.log, moi: [] })
-    }
-    if (body.noiVao) {
-      const t = await noiLoVao(thuMuc, lo, anh, body.noiVao, kq.dpi)
-      return Response.json({ thuMuc, soTrang: anh.length, moi: [], noiVao: t, log: kq.log })
-    }
-    const moi = await nhanLoScan(thuMuc, lo, anh, { ...ch, dpi: kq.dpi })
-    return Response.json({ thuMuc, soTrang: anh.length, moi, log: kq.log })
   })
 })
 

@@ -1,7 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { CO_ANH, DongDaLuu, TheNhap } from './the-tai-lieu'
+import { chuanThuMuc2, CO_ANH, DongDaLuu, TheNhap } from './the-tai-lieu'
 import XemAnh from './xem-anh'
 import { moTaLoiMay } from '@/lib/loi-may'
 
@@ -47,6 +47,15 @@ export default function ManHinhScan() {
   const [hopThoai, setHopThoai] = useState('')
   const daDungRef = useRef(false)
   const [doiTenTm, setDoiTenTm] = useState(null)
+  // tên thư mục con đang gõ khi trong thư mục có nháp: nháp đi theo tên mới (đổi tên trên ổ đĩa)
+  const [conGo, setConGo] = useState(null)
+  const [loiCon, setLoiCon] = useState('')
+  // "thư mục con của con" chung đã áp dụng lần cuối: nháp đang ở thư mục này là nháp
+  // "theo ô trên" — sửa ô trên thì chúng đổi theo ngay (live); nháp đã chọn riêng thì giữ
+  const [capCu, setCapCu] = useState(null)
+  const [loiCap, setLoiCap] = useState('')
+  const dangDoiConRef = useRef(false)
+  const [cuonXuong, setCuonXuong] = useState(false)
   const [loiLuu, setLoiLuu] = useState({})
   // cỡ thumbnail: tiện riêng từng người xem → localStorage (lỗi thì dùng mặc định)
   const [coAnh, setCoAnhState] = useState(() => {
@@ -151,6 +160,7 @@ export default function ManHinhScan() {
 
   // ── scan ────────────────────────────────────────────────────────────────
   async function scanMotLan(noiVao, lyDo) {
+    if (dangDoiConRef.current) throw new Error('Đang đổi tên thư mục con — bấm quét lại sau giây lát.')
     // lưu ngay, không chờ debounce: server scan theo cấu hình đã lưu
     await goiApi('/api/cau-hinh', { method: 'PUT', body: ch })
     setTrangThai('Đang quét… (máy đang kéo giấy)')
@@ -342,6 +352,42 @@ export default function ManHinhScan() {
     }
   }
 
+  /**
+   * Thư mục con đang có nháp mà gõ tên khác → ĐỔI TÊN thư mục trên ổ đĩa để nháp
+   * đi theo (chưa có nháp thì gõ tên = chuyển sang thư mục khác như cũ).
+   * Tên trùng một thư mục đã có → chuyển sang thư mục đó, nháp ở lại thư mục cũ.
+   */
+  async function apDungCon(go) {
+    const tenMoi = go.trim()
+    // gõ tiếp trong lúc đang đổi thì giữ chữ đang gõ
+    const xong = () => setConGo((g) => (g === go ? null : g))
+    if (tenMoi === con) {
+      setLoiCon('')
+      return xong()
+    }
+    if (!tenMoi) return setLoiCon('Tên thư mục con không được để trống.')
+    if (dangDoiConRef.current) return
+    const daCo = (tt?.thuMucCon ?? []).find((t) => t.toLowerCase() === tenMoi.toLowerCase())
+    if (daCo && daCo.toLowerCase() !== con.toLowerCase()) {
+      setLoiCon('')
+      setCh((c) => ({ ...c, thuMucCon: daCo }))
+      setThongBao({ text: `Đã có thư mục "${daCo}" — chuyển sang thư mục đó. File nháp vẫn nằm trong "${con}".` })
+      return xong()
+    }
+    dangDoiConRef.current = true
+    try {
+      await goiApi('/api/thu-muc', { method: 'POST', body: { goc, con, hanhDong: 'doi-ten', tenMoi } })
+      setLoiCon('')
+      setCh((c) => ({ ...c, thuMucCon: tenMoi }))
+      xong()
+      await napThuMuc(goc, tenMoi)
+    } catch (e) {
+      setLoiCon(e.message)
+    } finally {
+      dangDoiConRef.current = false
+    }
+  }
+
   function batTatLienTuc(b) {
     lienTucRef.current = b
     setLienTuc(b)
@@ -408,6 +454,26 @@ export default function ManHinhScan() {
   useEffect(() => {
     luuRef.current = luu
   })
+
+  // gõ tên thư mục con khi có nháp: ngừng gõ chốc lát thì đổi tên thư mục trên ổ đĩa.
+  // Đang quét thì chờ quét xong — đổi tên giữa chừng là ảnh ghi vào thư mục không còn.
+  const apDungConRef = useRef(null)
+  useEffect(() => {
+    apDungConRef.current = apDungCon
+  })
+  useEffect(() => {
+    if (conGo === null || dangScan) return
+    const t = setTimeout(() => apDungConRef.current(conGo), 800)
+    return () => clearTimeout(t)
+  }, [conGo, dangScan, con])
+
+  // nút mũi tên lên đầu trang: hiện khi đã cuộn xuống
+  useEffect(() => {
+    const xem = () => setCuonXuong(window.scrollY > 400)
+    xem()
+    window.addEventListener('scroll', xem, { passive: true })
+    return () => window.removeEventListener('scroll', xem)
+  }, [])
   // Ctrl+S = Lưu
   useEffect(() => {
     const phim = (e) => {
@@ -428,6 +494,20 @@ export default function ManHinhScan() {
   useEffect(() => {
     thaoTacRef.current = thaoTac
   })
+
+  if (ch && capCu === null) setCapCu(chuanThuMuc2(ch.thuMucCap3))
+  const capGo = chuanThuMuc2(ch?.thuMucCap3)
+  const coThuMuc = !!tt?.tonTai
+  // ngừng gõ ô trên chốc lát → ghi vào nháp (giao diện đã đổi theo từ lúc gõ)
+  useEffect(() => {
+    if (capCu === null || capGo === capCu) return
+    const t = setTimeout(async () => {
+      const l = coThuMuc ? await thaoTacRef.current({ hanhDong: 'doi-thu-muc-chung', tu: capCu, den: capGo }, { imLoi: true }) : null
+      setLoiCap(l ?? '')
+      if (!l) setCapCu(capGo)
+    }, 600)
+    return () => clearTimeout(t)
+  }, [capGo, capCu, coThuMuc])
 
   if (!ch) {
     return (
@@ -487,8 +567,20 @@ export default function ManHinhScan() {
             <div className="flex flex-wrap items-center gap-2">
               <input
                 className={`${o} min-w-64 flex-1 font-mono`}
-                value={ch.thuMucCon}
-                onChange={sua('thuMucCon')}
+                value={conGo ?? ch.thuMucCon}
+                onChange={(e) => {
+                  if (conGo === null && !taiLieu.some((t) => t.trangThai === 'nhap')) return sua('thuMucCon')(e)
+                  setConGo(e.target.value)
+                }}
+                onBlur={() => conGo !== null && !dangScan && apDungCon(conGo)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') e.currentTarget.blur()
+                  if (e.key === 'Escape') {
+                    setConGo(null)
+                    setLoiCon('')
+                  }
+                }}
+                title="Đang có file nháp: gõ tên mới là đổi tên thư mục, nháp đi theo"
                 list="ds-thu-muc-con"
                 spellCheck={false}
               />
@@ -532,7 +624,13 @@ export default function ManHinhScan() {
             </div>
           )}
           <p className="mt-2 text-xs">
-            {tt?.loi ? (
+            {loiCon ? (
+              <span className="text-red-400">{loiCon}</span>
+            ) : conGo !== null && conGo.trim() !== con ? (
+              <span className="text-sky-300">
+                {dangScan ? 'Quét xong sẽ đổi tên thư mục' : 'Sắp đổi tên thư mục'} &quot;{con}&quot; → &quot;{conGo.trim()}&quot; — file nháp đi theo
+              </span>
+            ) : tt?.loi ? (
               <span className="text-red-400">{tt.loi}</span>
             ) : tt ? (
               <>
@@ -548,6 +646,30 @@ export default function ManHinhScan() {
             ) : null}
           </p>
         </div>
+
+        <label className="block">
+          <span className="mb-1 block text-xs font-medium uppercase tracking-wide text-neutral-400">
+            Thư mục con của con{' '}
+            <span className="normal-case text-neutral-500">
+              — gõ là các file nháp ở dưới đổi theo ngay, file quét sau cũng vào đây; muốn khác thì chọn riêng từng file ở dưới
+            </span>
+          </span>
+          <input
+            className={`${o} w-full font-mono`}
+            value={ch.thuMucCap3 ?? ''}
+            onChange={sua('thuMucCap3')}
+            list="ds-thu-muc-2"
+            placeholder="để trống = lưu ngay trong thư mục con; nhiều cấp thì ngăn bằng \  ví dụ  Ho so A\Nguyen Van A"
+            spellCheck={false}
+          />
+          {loiCap && <span className="mt-1 block text-xs text-red-400">{loiCap}</span>}
+          {/* gợi ý dùng chung cho ô này và ô thư mục con của con trong từng file nháp */}
+          <datalist id="ds-thu-muc-2">
+            {goiYThuMuc.map((t) => (
+              <option key={t} value={t} />
+            ))}
+          </datalist>
+        </label>
       </section>
 
       {/* ── máy scan ──────────────────────────────────────────────────── */}
@@ -732,13 +854,15 @@ export default function ManHinhScan() {
               key={tl.id}
               tl={tl}
               thuMuc={tt.duongDan}
-              tenCon={ch.thuMucCon}
+              tenCon={conGo?.trim() || ch.thuMucCon}
               idTren={nhap[i - 1]?.id}
               idDuoi={nhap[i + 1]?.id}
               laMoi={moi.has(tl.id)}
               tuDongChon={tl.id === nhap.find((t) => moi.has(t.id))?.id}
               loi={loiLuu[tl.id] || trung[tl.id]}
               goiYThuMuc={goiYThuMuc}
+              tm2TheoTren={capCu !== null && chuanThuMuc2(tl.thuMuc2) === capCu ? capGo : null}
+              tm2Tren={capGo}
               coAnh={coAnh}
               onThaoTac={thaoTac}
               onXemAnh={(k) => setXem({ id: tl.id, k })}
@@ -756,7 +880,7 @@ export default function ManHinhScan() {
           <h2 className="mb-2 text-sm font-medium text-neutral-400">Đã lưu — {daLuu.length} file PDF (mới nhất ở trên)</h2>
           <div className="space-y-1.5">
             {daLuu.map((tl) => (
-              <DongDaLuu key={tl.id} tl={tl} thuMuc={tt.duongDan} tenCon={ch.thuMucCon} onThaoTac={thaoTac} />
+              <DongDaLuu key={tl.id} tl={tl} thuMuc={tt.duongDan} tenCon={conGo?.trim() || ch.thuMucCon} onThaoTac={thaoTac} />
             ))}
           </div>
         </section>
@@ -783,6 +907,19 @@ export default function ManHinhScan() {
             </button>
           </div>
         </div>
+      )}
+
+      {cuonXuong && (
+        <button
+          className={`fixed right-4 z-40 flex size-11 items-center justify-center rounded-full border border-neutral-700 bg-neutral-900/90 text-xl text-neutral-200 shadow-lg backdrop-blur hover:bg-neutral-800 ${
+            nhap.length > 0 ? 'bottom-20' : 'bottom-6'
+          }`}
+          onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
+          title="Lên đầu trang"
+          aria-label="Lên đầu trang"
+        >
+          ↑
+        </button>
       )}
 
       {tlXem && (
