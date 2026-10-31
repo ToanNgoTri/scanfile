@@ -235,6 +235,8 @@ export default function ManHinhScan() {
         // cảm biến báo sai "trống" thì máy không chạy (đã gặp). Chỉ chế độ liên tục
         // mới chờ cảm biến, để khỏi quét thử liên miên khi khay trống.
         let giay = 'mot-lan'
+        // mặt kính chỉ có một tờ: quét liên tục sẽ ra mãi cùng một tờ
+        if (ch.nguon === 'glass') lienTucRef.current = false
         if (lienTucRef.current && !noiVao) {
           giay = camBienSai ? 'thu' : await choGiay()
           setDangChoGiay(false)
@@ -256,7 +258,13 @@ export default function ManHinhScan() {
           continue
         }
         if (!r.soTrang && (noiVao || !lienTucRef.current)) {
-          setThongBao({ loi: true, text: 'Không quét được trang nào — khay giấy đang trống?' })
+          setThongBao({
+            loi: true,
+            text:
+              ch.nguon === 'duplex' || ch.nguon === 'feeder'
+                ? 'Không quét được trang nào — khay nạp đang trống? Giấy đặt trên mặt kính thì chọn Nguồn giấy: "Mặt kính" hoặc "Tự động".'
+                : 'Không quét được trang nào — khay giấy đang trống?',
+          })
         }
       } while (lienTucRef.current && !noiVao)
     } catch (e) {
@@ -705,10 +713,12 @@ export default function ManHinhScan() {
             {may.loi && <span className="mt-1 block text-xs text-red-400">{may.loi}</span>}
             {!may.dang && may.goiY && <span className="mt-1 block text-xs text-amber-400">{may.goiY}</span>}
           </Truong>
-          <Truong nhan="Mặt giấy">
+          <Truong nhan="Nguồn giấy">
             <select className={o} value={ch.nguon} onChange={sua('nguon')} disabled={dangScan}>
-              <option value="duplex">2 mặt</option>
-              <option value="feeder">1 mặt</option>
+              <option value="tu-dong">Tự động (khay nạp 2 mặt, khay trống → mặt kính)</option>
+              <option value="duplex">Khay nạp — 2 mặt</option>
+              <option value="feeder">Khay nạp — 1 mặt</option>
+              <option value="glass">Mặt kính (đặt giấy dưới nắp)</option>
             </select>
           </Truong>
           <Truong nhan="Độ phân giải">
@@ -789,8 +799,15 @@ export default function ManHinhScan() {
             </>
           )}
           <label className="flex cursor-pointer items-center gap-2 text-sm">
-            <input type="checkbox" checked={lienTuc} onChange={(e) => batTatLienTuc(e.target.checked)} className="size-4 accent-sky-500" />
+            <input
+              type="checkbox"
+              checked={lienTuc && ch.nguon !== 'glass'}
+              disabled={ch.nguon === 'glass'}
+              onChange={(e) => batTatLienTuc(e.target.checked)}
+              className="size-4 accent-sky-500"
+            />
             Scan liên tục — đặt giấy là tự quét tiếp
+            {ch.nguon === 'glass' && <span className="text-xs text-neutral-500">(chỉ dùng với khay nạp)</span>}
           </label>
           {trangThai && (
             <span className="flex items-center gap-2 text-sm text-sky-300">

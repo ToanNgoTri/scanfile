@@ -37,7 +37,7 @@ export const POST = boc(async (req) => {
       ghiNhatKy('yêu cầu quét:', body.lyDo ?? 'mot-lan', body.noiVao ? `(scan tiếp vào ${body.noiVao})` : '')
       let kq
       try {
-        kq = await scan(dir, ch)
+        kq = await scan(dir, ch, { lienTuc: ['co', 'thu', 'ngay'].includes(body.lyDo) })
       } catch (e) {
         await rm(dir, { recursive: true, force: true })
         if (e instanceof LoiDaDung) return Response.json({ thuMuc, soTrang: 0, daDung: true, moi: [] })

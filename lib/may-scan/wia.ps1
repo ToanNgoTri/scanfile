@@ -53,10 +53,11 @@ if ($Action -eq 'giay') {
   Ra @{ loi = 'Máy không báo trạng thái khay giấy qua WIA.' }
 }
 
-# 3088 = DOCUMENT_HANDLING_SELECT: 1 khay nạp, 5 khay nạp + 2 mặt
-DatThuocTinh $dev.Properties 3088 $(if ($Nguon -eq 'duplex') { 5 } else { 1 })
-# 3096 = PAGES: 0 = quét hết khay
-DatThuocTinh $dev.Properties 3096 0
+$kinh = $Nguon -eq 'glass'
+# 3088 = DOCUMENT_HANDLING_SELECT: 1 khay nạp, 5 khay nạp + 2 mặt, 2 mặt kính
+DatThuocTinh $dev.Properties 3088 $(if ($kinh) { 2 } elseif ($Nguon -eq 'duplex') { 5 } else { 1 })
+# 3096 = PAGES: 0 = quét hết khay; mặt kính 1 tờ
+DatThuocTinh $dev.Properties 3096 $(if ($kinh) { 1 } else { 0 })
 
 $item = $dev.Items.Item(1)
 # 6146 = CURRENT_INTENT: 1 màu, 2 xám, 4 đen trắng
@@ -94,5 +95,7 @@ while ($true) {
     $img = $ip.Apply($img)
   }
   $img.SaveFile($f)
+  # mặt kính chỉ có một tờ — Transfer tiếp là quét lại tờ đó
+  if ($kinh) { break }
 }
 Ra @{ soTrang = $n }

@@ -365,7 +365,7 @@ export function DongDaLuu({ tl, thuMuc, tenCon, onThaoTac }) {
       <div className="min-w-0 flex-1">
         <div className="truncate font-medium">{tl.ten}.pdf</div>
         <div className="truncate font-mono text-xs text-neutral-500">
-          {tenCon}\{tl.fileDaLuu} · {tl.anh.length} trang
+          {tenCon}\{tl.fileDaLuu} · {tl.soTrang ?? tl.anh.length} trang
           {tl.mat && <span className="ml-2 font-sans text-amber-400">không thấy file trên ổ đĩa</span>}
         </div>
       </div>
@@ -376,9 +376,11 @@ export function DongDaLuu({ tl, thuMuc, tenCon, onThaoTac }) {
         <button className={nut} onClick={() => onThaoTac({ hanhDong: 'mo', id: tl.id })}>
           Hiện trong thư mục
         </button>
-        <button className={nut} onClick={() => onThaoTac({ hanhDong: 'sua-lai', id: tl.id })} title="Đưa về nháp để đổi tên, chuyển trang… rồi Lưu lại">
-          Sửa lại
-        </button>
+        {tl.anh.length > 0 && (
+          <button className={nut} onClick={() => onThaoTac({ hanhDong: 'sua-lai', id: tl.id })} title="Đưa về nháp để đổi tên, chuyển trang… rồi Lưu lại">
+            Sửa lại
+          </button>
+        )}
       </div>
     </div>
   )

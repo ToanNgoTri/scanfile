@@ -37,7 +37,9 @@ Giữ cửa sổ đen mở trong lúc dùng; đóng nó là tắt app.
   Để trống = dùng máy đầu tiên tìm thấy.
 - **WIA**: dùng khi driver có phần WIA và không có NAPS2.
 - **Giả lập**: không cần máy, để làm quen với app.
-- **Mặt giấy**: *2 mặt* — 2 tờ quét 2 mặt cho ra 4 ảnh.
+- **Nguồn giấy**: *Tự động* (mặc định) — có giấy ở khay nạp thì quét 2 mặt qua khay nạp; khay nạp
+  trống thì quét tờ đặt trên **mặt kính** (dưới nắp). *Khay nạp — 2 mặt*: 2 tờ cho ra 4 ảnh.
+  *Mặt kính*: luôn quét mặt kính, mỗi lần 1 tờ (không dùng được với Scan liên tục).
 
 ## 5. Quét
 
@@ -108,7 +110,8 @@ Nút trên thẻ nháp: **Xem thử PDF** (dựng tạm, không ghi file) · **�
 
 **Lưu**: app kiểm hết trước — có lỗi (trùng tên, tên sai) thì **không ghi file nào**, các thẻ lỗi
 viền đỏ để sửa. Lưu xong, file chuyển xuống mục **Đã lưu** (Xem PDF · Hiện trong thư mục ·
-**Sửa lại** = đưa về nháp; lần Lưu sau PDF cũ được thay).
+**Sửa lại** chỉ còn với file lưu trước khi có bản này — từ nay Lưu xong app xoá ảnh scan cho nhẹ máy,
+muốn sửa file đã lưu thì quét lại).
 
 ## 7. Trong thư mục kết quả có gì
 
@@ -117,10 +120,10 @@ D:\Scan\Ho so A\
   Giay khai sinh.pdf          ← các PDF của bạn
   scan-0002.pdf
   Nguyen Van A\CCCD.pdf       ← PDF lưu vào "thư mục con của con"
-  _anh-scan\                  ← ảnh gốc + bản nháp, để sửa lại không phải quét lại
+  _anh-scan\                  ← (thư mục ẩn) ảnh của các trang còn NHÁP; Lưu xong là ảnh bị xoá
 ```
 
-Đừng xoá `_anh-scan` nếu còn file nháp hoặc còn muốn "Sửa lại" trong app. Gửi hồ sơ cho người khác thì chỉ cần các file PDF.
+Đừng xoá `_anh-scan` khi còn file nháp chưa Lưu. Gửi hồ sơ cho người khác thì chỉ cần các file PDF.
 
 ## 8. Gặp lỗi
 

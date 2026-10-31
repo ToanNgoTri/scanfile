@@ -138,8 +138,10 @@ static class TroGiup
         try { dev = di.Connect(); }
         catch (Exception e) { Ra("{\"loi\":" + Q("Không kết nối được máy scan (mã " + MaLoi(e) + ").") + "}"); return 0; }
 
-        DatThuocTinh(dev.Properties, 3088, nguon == "duplex" ? 5 : 1); // khay nạp (+ 2 mặt)
-        DatThuocTinh(dev.Properties, 3096, 0);                          // quét hết khay
+        bool kinh = nguon == "glass";
+        // 3088: 1 khay nạp, 5 khay nạp + 2 mặt, 2 mặt kính
+        DatThuocTinh(dev.Properties, 3088, kinh ? 2 : nguon == "duplex" ? 5 : 1);
+        DatThuocTinh(dev.Properties, 3096, kinh ? 1 : 0);               // mặt kính 1 tờ, khay nạp quét hết
         dynamic item = dev.Items[1];
         DatThuocTinh(item.Properties, 6146, mau == "gray" ? 2 : mau == "bw" ? 4 : 1);
         DatThuocTinh(item.Properties, 6147, dpi);
@@ -173,6 +175,7 @@ static class TroGiup
                 img = ip.Apply(img);
             }
             img.SaveFile(Path.Combine(dir, n.ToString("D4") + ".jpg"));
+            if (kinh) break; // mặt kính chỉ có một tờ — Transfer tiếp là quét lại tờ đó
         }
         Ra("{\"soTrang\":" + n + ",\"hetGiay\":false}");
         return 0;
